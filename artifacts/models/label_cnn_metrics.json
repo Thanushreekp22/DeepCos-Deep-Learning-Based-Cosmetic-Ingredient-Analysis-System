@@ -1,0 +1,384 @@
+{
+  "task": "label_category",
+  "trained_at": "2026-09-29 10:38:44",
+  "training_seconds": 81.36,
+  "dataset": {
+    "samples": 2400,
+    "image_size": 128,
+    "splits": {
+      "train": 1680,
+      "val": 360,
+      "test": 360
+    }
+  },
+  "architecture": {
+    "model_name": "deepcos_label_cnn",
+    "task": "label_category",
+    "input_shape": [
+      128,
+      128,
+      3
+    ],
+    "stages": [
+      {
+        "stage": "conv1 + pool1",
+        "description": "5x5 strided convolution - learns edges and stroke fragments."
+      },
+      {
+        "stage": "conv2 + pool2",
+        "description": "Builds text-like texture and character-part features."
+      },
+      {
+        "stage": "conv3 / conv4 / conv5",
+        "description": "3x3 stack - higher-level text and layout patterns."
+      },
+      {
+        "stage": "fc6 / fc7",
+        "description": "Fully-connected visual feature extractor."
+      },
+      {
+        "stage": "predictions",
+        "description": "Task head (text/background or product category)."
+      }
+    ],
+    "layers": [
+      {
+        "name": "label_image",
+        "type": "InputLayer",
+        "output_shape": "(None, 128, 128, 3)",
+        "params": 0
+      },
+      {
+        "name": "conv1",
+        "type": "Conv2D",
+        "output_shape": "(None, 64, 64, 32)",
+        "params": 2432
+      },
+      {
+        "name": "pool1",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 32, 32, 32)",
+        "params": 0
+      },
+      {
+        "name": "conv2",
+        "type": "Conv2D",
+        "output_shape": "(None, 32, 32, 64)",
+        "params": 18496
+      },
+      {
+        "name": "pool2",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 16, 16, 64)",
+        "params": 0
+      },
+      {
+        "name": "conv3",
+        "type": "Conv2D",
+        "output_shape": "(None, 16, 16, 64)",
+        "params": 36928
+      },
+      {
+        "name": "conv4",
+        "type": "Conv2D",
+        "output_shape": "(None, 16, 16, 128)",
+        "params": 73856
+      },
+      {
+        "name": "conv5",
+        "type": "Conv2D",
+        "output_shape": "(None, 16, 16, 128)",
+        "params": 147584
+      },
+      {
+        "name": "pool5",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 8, 8, 128)",
+        "params": 0
+      },
+      {
+        "name": "flatten",
+        "type": "Flatten",
+        "output_shape": "(None, 8192)",
+        "params": 0
+      },
+      {
+        "name": "fc6",
+        "type": "Dense",
+        "output_shape": "(None, 256)",
+        "params": 2097408
+      },
+      {
+        "name": "dropout6",
+        "type": "Dropout",
+        "output_shape": "(None, 256)",
+        "params": 0
+      },
+      {
+        "name": "fc7",
+        "type": "Dense",
+        "output_shape": "(None, 128)",
+        "params": 32896
+      },
+      {
+        "name": "dropout7",
+        "type": "Dropout",
+        "output_shape": "(None, 128)",
+        "params": 0
+      },
+      {
+        "name": "predictions",
+        "type": "Dense",
+        "output_shape": "(None, 8)",
+        "params": 1032
+      }
+    ],
+    "total_params": 2410632
+  },
+  "metrics": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "per_class": {
+      "Serum": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 33
+      },
+      "Moisturizer": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 49
+      },
+      "Cleanser": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 56
+      },
+      "Sunscreen": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 50
+      },
+      "Toner": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 39
+      },
+      "Mask": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 52
+      },
+      "Exfoliant": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 43
+      },
+      "Eye Cream": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 38
+      }
+    },
+    "confusion_matrix": [
+      [
+        33,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        49,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        56,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        50,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        39,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        52,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        43,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        38
+      ]
+    ]
+  },
+  "history": {
+    "accuracy": [
+      0.14226,
+      0.3619,
+      0.55238,
+      0.7494,
+      0.89226,
+      0.95357,
+      0.98214,
+      0.99048,
+      0.99107,
+      0.99583
+    ],
+    "loss": [
+      2.06485,
+      1.57721,
+      1.10464,
+      0.62992,
+      0.27577,
+      0.1419,
+      0.07082,
+      0.04106,
+      0.0289,
+      0.01616
+    ],
+    "val_accuracy": [
+      0.28889,
+      0.48056,
+      0.75556,
+      0.84444,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "val_loss": [
+      1.8134,
+      1.07873,
+      0.66178,
+      0.2757,
+      0.04214,
+      0.00348,
+      0.0005,
+      0.00319,
+      0.00014,
+      0.0023
+    ],
+    "learning_rate": [
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005
+    ]
+  },
+  "sample_predictions": [
+    {
+      "true": "Exfoliant",
+      "predicted": "Exfoliant",
+      "confidence": 1.0
+    },
+    {
+      "true": "Sunscreen",
+      "predicted": "Sunscreen",
+      "confidence": 1.0
+    },
+    {
+      "true": "Serum",
+      "predicted": "Serum",
+      "confidence": 0.9999
+    },
+    {
+      "true": "Exfoliant",
+      "predicted": "Exfoliant",
+      "confidence": 1.0
+    },
+    {
+      "true": "Cleanser",
+      "predicted": "Cleanser",
+      "confidence": 1.0
+    },
+    {
+      "true": "Serum",
+      "predicted": "Serum",
+      "confidence": 1.0
+    },
+    {
+      "true": "Eye Cream",
+      "predicted": "Eye Cream",
+      "confidence": 0.9999
+    },
+    {
+      "true": "Sunscreen",
+      "predicted": "Sunscreen",
+      "confidence": 1.0
+    }
+  ],
+  "notes": [
+    "Trained on synthetically rendered labels with category-specific shapes, colours and copy.",
+    "Provides a visual category prior that complements the text-based prediction."
+  ]
+}

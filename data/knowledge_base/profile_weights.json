@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "purpose": "How the formulation-profile weak-supervision labels are derived from an ingredient list. A function contributes a marginal amount to a profile dimension; specific markers add a boost; the product category supplies a base level. The LSTM+MLP network is trained to reproduce these labels from the ingredient sequence alone, then generalises to unseen products.",
+  "noise_std": 0.05,
+  "base_level": 0.03,
+  "squash_k": 1.25,
+  "function_weights": {
+    "hydration": {
+      "humectant": 0.19,
+      "skin-conditioning": 0.04,
+      "occlusive": 0.05,
+      "soothing": 0.02,
+      "solvent": 0.01
+    },
+    "brightening": {
+      "brightening": 0.48,
+      "antioxidant": 0.14,
+      "retinoid": 0.12,
+      "peptide": 0.04
+    },
+    "exfoliation": {
+      "exfoliating": 0.46,
+      "anti-acne": 0.10,
+      "cleansing": 0.06
+    },
+    "barrier_support": {
+      "barrier-repair": 0.38,
+      "occlusive": 0.14,
+      "emollient": 0.07,
+      "soothing": 0.12,
+      "antioxidant": 0.05
+    }
+  },
+  "decay": 0.96,
+  "dimension_scale": {
+    "hydration": 1.8,
+    "brightening": 1.45,
+    "exfoliation": 1.45,
+    "barrier_support": 2.55
+  },
+  "marker_boosts": {
+    "Glycerin": {"hydration": 0.07},
+    "Sodium Hyaluronate": {"hydration": 0.10},
+    "Hyaluronic Acid": {"hydration": 0.10},
+    "Hydrolyzed Hyaluronic Acid": {"hydration": 0.05},
+    "Panthenol": {"hydration": 0.04, "barrier_support": 0.10},
+    "Polyglutamic Acid": {"hydration": 0.06},
+    "Saccharide Isomerate": {"hydration": 0.05},
+    "Ectoin": {"hydration": 0.04, "barrier_support": 0.08},
+    "Betaine": {"hydration": 0.03},
+    "Niacinamide": {"brightening": 0.22, "barrier_support": 0.10},
+    "Ascorbic Acid": {"brightening": 0.24},
+    "3-O-Ethyl Ascorbic Acid": {"brightening": 0.16},
+    "Ascorbyl Glucoside": {"brightening": 0.14},
+    "Sodium Ascorbyl Phosphate": {"brightening": 0.14},
+    "Magnesium Ascorbyl Phosphate": {"brightening": 0.14},
+    "Tetrahexyldecyl Ascorbate": {"brightening": 0.16},
+    "Alpha-Arbutin": {"brightening": 0.22},
+    "Kojic Acid": {"brightening": 0.22},
+    "Tranexamic Acid": {"brightening": 0.18},
+    "Glycyrrhiza Glabra Root Extract": {"brightening": 0.14},
+    "Azelaic Acid": {"brightening": 0.14, "exfoliation": 0.14},
+    "Glutathione": {"brightening": 0.12},
+    "Retinol": {"brightening": 0.16},
+    "Bakuchiol": {"brightening": 0.12},
+    "Glycolic Acid": {"exfoliation": 0.24},
+    "Lactic Acid": {"exfoliation": 0.20},
+    "Mandelic Acid": {"exfoliation": 0.20},
+    "Salicylic Acid": {"exfoliation": 0.24},
+    "Betaine Salicylate": {"exfoliation": 0.16},
+    "Gluconolactone": {"exfoliation": 0.16},
+    "Lactobionic Acid": {"exfoliation": 0.16},
+    "Papain": {"exfoliation": 0.18},
+    "Bromelain": {"exfoliation": 0.18},
+    "Phytic Acid": {"exfoliation": 0.12},
+    "Microcrystalline Cellulose": {"exfoliation": 0.14},
+    "Jojoba Esters": {"exfoliation": 0.12},
+    "Ceramide NP": {"barrier_support": 0.24},
+    "Ceramide AP": {"barrier_support": 0.20},
+    "Ceramide EOP": {"barrier_support": 0.20},
+    "Cholesterol": {"barrier_support": 0.12},
+    "Linoleic Acid": {"barrier_support": 0.12},
+    "Petrolatum": {"barrier_support": 0.16, "hydration": 0.08},
+    "Squalane": {"barrier_support": 0.10},
+    "Madecassoside": {"barrier_support": 0.10},
+    "Centella Asiatica Extract": {"barrier_support": 0.08},
+    "Allantoin": {"barrier_support": 0.06},
+    "Copper Tripeptide-1": {"barrier_support": 0.10}
+  }
+}

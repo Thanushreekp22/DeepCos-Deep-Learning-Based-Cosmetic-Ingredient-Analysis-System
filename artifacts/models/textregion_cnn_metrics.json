@@ -1,0 +1,244 @@
+{
+  "task": "text_region",
+  "trained_at": "2026-09-29 10:36:34",
+  "training_seconds": 32.8,
+  "dataset": {
+    "samples": 3000,
+    "patch_size": 64,
+    "splits": {
+      "train": 2100,
+      "val": 450,
+      "test": 450
+    }
+  },
+  "architecture": {
+    "model_name": "deepcos_textregion_cnn",
+    "task": "text_region",
+    "input_shape": [
+      64,
+      64,
+      1
+    ],
+    "stages": [
+      {
+        "stage": "conv1 + pool1",
+        "description": "5x5 strided convolution - learns edges and stroke fragments."
+      },
+      {
+        "stage": "conv2 + pool2",
+        "description": "Builds text-like texture and character-part features."
+      },
+      {
+        "stage": "conv3 / conv4 / conv5",
+        "description": "3x3 stack - higher-level text and layout patterns."
+      },
+      {
+        "stage": "fc6 / fc7",
+        "description": "Fully-connected visual feature extractor."
+      },
+      {
+        "stage": "predictions",
+        "description": "Task head (text/background or product category)."
+      }
+    ],
+    "layers": [
+      {
+        "name": "label_image",
+        "type": "InputLayer",
+        "output_shape": "(None, 64, 64, 1)",
+        "params": 0
+      },
+      {
+        "name": "conv1",
+        "type": "Conv2D",
+        "output_shape": "(None, 32, 32, 32)",
+        "params": 832
+      },
+      {
+        "name": "pool1",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 16, 16, 32)",
+        "params": 0
+      },
+      {
+        "name": "conv2",
+        "type": "Conv2D",
+        "output_shape": "(None, 16, 16, 64)",
+        "params": 18496
+      },
+      {
+        "name": "pool2",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 8, 8, 64)",
+        "params": 0
+      },
+      {
+        "name": "conv3",
+        "type": "Conv2D",
+        "output_shape": "(None, 8, 8, 64)",
+        "params": 36928
+      },
+      {
+        "name": "conv4",
+        "type": "Conv2D",
+        "output_shape": "(None, 8, 8, 128)",
+        "params": 73856
+      },
+      {
+        "name": "conv5",
+        "type": "Conv2D",
+        "output_shape": "(None, 8, 8, 128)",
+        "params": 147584
+      },
+      {
+        "name": "pool5",
+        "type": "MaxPooling2D",
+        "output_shape": "(None, 4, 4, 128)",
+        "params": 0
+      },
+      {
+        "name": "flatten",
+        "type": "Flatten",
+        "output_shape": "(None, 2048)",
+        "params": 0
+      },
+      {
+        "name": "fc6",
+        "type": "Dense",
+        "output_shape": "(None, 256)",
+        "params": 524544
+      },
+      {
+        "name": "dropout6",
+        "type": "Dropout",
+        "output_shape": "(None, 256)",
+        "params": 0
+      },
+      {
+        "name": "fc7",
+        "type": "Dense",
+        "output_shape": "(None, 128)",
+        "params": 32896
+      },
+      {
+        "name": "dropout7",
+        "type": "Dropout",
+        "output_shape": "(None, 128)",
+        "params": 0
+      },
+      {
+        "name": "predictions",
+        "type": "Dense",
+        "output_shape": "(None, 1)",
+        "params": 129
+      }
+    ],
+    "total_params": 835265
+  },
+  "metrics": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "per_class": {
+      "background": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 223
+      },
+      "text": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 227
+      }
+    },
+    "confusion_matrix": [
+      [
+        223,
+        0
+      ],
+      [
+        0,
+        227
+      ]
+    ]
+  },
+  "history": {
+    "accuracy": [
+      0.92476,
+      0.99238,
+      0.99571,
+      0.9981,
+      0.99714,
+      0.9981,
+      0.99905,
+      0.99905,
+      0.99952,
+      0.99905,
+      0.99905,
+      0.99905
+    ],
+    "loss": [
+      0.15042,
+      0.02805,
+      0.01559,
+      0.00964,
+      0.00885,
+      0.00603,
+      0.0054,
+      0.00265,
+      0.00135,
+      0.00205,
+      0.00292,
+      0.00291
+    ],
+    "val_accuracy": [
+      0.99111,
+      0.98444,
+      1.0,
+      1.0,
+      0.99556,
+      0.99778,
+      0.99778,
+      1.0,
+      1.0,
+      1.0,
+      0.99778,
+      1.0
+    ],
+    "val_loss": [
+      0.02713,
+      0.04341,
+      0.00122,
+      0.00218,
+      0.01088,
+      0.00608,
+      0.00386,
+      0.00057,
+      0.00045,
+      0.00142,
+      0.0047,
+      0.0004
+    ],
+    "learning_rate": [
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.00025,
+      0.00025,
+      0.00013,
+      0.00013,
+      0.00013,
+      0.00013,
+      6e-05
+    ]
+  },
+  "notes": [
+    "Trained on synthetically rendered label text vs. background patches.",
+    "Applied as a sliding window to crop the ingredient block before OCR."
+  ]
+}

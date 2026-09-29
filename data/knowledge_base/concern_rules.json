@@ -1,0 +1,96 @@
+{
+  "version": "1.0.0",
+  "purpose": "Maps ingredient-level concern tags to a plain-language screening message, a severity and a short piece of context. Used by the DeepCos concern engine. This is screening of documented ingredient characteristics, not a safety verdict about the finished product or about an individual person.",
+  "severities": {
+    "info": {"rank": 0, "label": "Information", "color": "#38bdf8"},
+    "low": {"rank": 1, "label": "Note", "color": "#4ade80"},
+    "medium": {"rank": 2, "label": "Watch", "color": "#fbbf24"},
+    "high": {"rank": 3, "label": "Attention", "color": "#f87171"}
+  },
+  "rules": {
+    "fragrance": {
+      "label": "Fragrance present",
+      "severity": "medium",
+      "message": "The formula contains fragrance material. Fragrance is one of the most frequently reported causes of cosmetic contact reactions.",
+      "advice": "Relevant if you know you react to scented products or prefer fragrance-free routines."
+    },
+    "fragrance-allergen": {
+      "label": "Declared fragrance allergen",
+      "severity": "medium",
+      "message": "One or more individual fragrance allergens from the EU labelling list were identified.",
+      "advice": "These must be declared on the label above a threshold; relevant mainly for fragrance-sensitive users."
+    },
+    "essential-oil": {
+      "label": "Essential oil detected",
+      "severity": "medium",
+      "message": "The formula contains one or more essential oils. Essential oils are complex mixtures that frequently act as fragrance allergens.",
+      "advice": "Oxidised essential oils carry a higher sensitisation risk, so storage and freshness matter."
+    },
+    "exfoliating-acid": {
+      "label": "Exfoliating acid detected",
+      "severity": "medium",
+      "message": "The formula contains an AHA / BHA / PHA or a related acid with exfoliating behaviour.",
+      "advice": "Relevant for sensitive or reactive skin. Exfoliating acids are also frequently combined with daily sun protection in the routine."
+    },
+    "photosensitising": {
+      "label": "Sun-sensitivity consideration",
+      "severity": "medium",
+      "message": "At least one ingredient in the formula is associated with increased sensitivity to sunlight (phototoxicity or photosensitisation).",
+      "advice": "Daytime sun protection is normally recommended alongside such ingredients."
+    },
+    "potential-sensitizer": {
+      "label": "Potential sensitiser",
+      "severity": "medium",
+      "message": "One or more ingredients in the formula are recognised as potential skin sensitisers for part of the population.",
+      "advice": "Most users tolerate these ingredients; patch testing is the usual way to check individual response."
+    },
+    "formaldehyde-releaser": {
+      "label": "Formaldehyde-releasing preservative",
+      "severity": "high",
+      "message": "The formula contains a preservative that works by slowly releasing formaldehyde.",
+      "advice": "Formaldehyde releasers are among the better-known contact allergens; relevant information if you have a known formaldehyde allergy."
+    },
+    "paraben": {
+      "label": "Paraben preservative",
+      "severity": "low",
+      "message": "The formula uses a paraben-class preservative.",
+      "advice": "Parabens are permitted in cosmetics with concentration limits in most markets; they are widely studied and generally well tolerated."
+    },
+    "sulfate-surfactant": {
+      "label": "Sulfate surfactant",
+      "severity": "low",
+      "message": "The formula contains a sulfate-type cleansing surfactant.",
+      "advice": "Effective cleansers, but potentially stripping for dry or reactive skin."
+    },
+    "drying-alcohol": {
+      "label": "Volatile drying alcohol",
+      "severity": "low",
+      "message": "Denatured or isopropyl alcohol is present. At higher levels this gives a fast-drying finish but can be drying.",
+      "advice": "Worth noting for dry or dehydrated skin, or when the alcohol appears high on the ingredient list."
+    },
+    "comedogenic-potential": {
+      "label": "Comedogenic potential",
+      "severity": "low",
+      "message": "One or more ingredients in the formula have a documented pore-clogging (comedogenic) potential.",
+      "advice": "Relevant mainly for blemish-prone skin; comedogenic ratings are only a rough guide."
+    },
+    "pregnancy-caution": {
+      "label": "Ingredient often reviewed during pregnancy",
+      "severity": "high",
+      "message": "The formula contains an ingredient that is commonly discussed in pregnancy-related skincare guidance.",
+      "advice": "DeepCos is not able to give medical advice. This is only a flag to raise with a healthcare professional if relevant to you."
+    },
+    "environmental-concern": {
+      "label": "Environmental consideration",
+      "severity": "info",
+      "message": "One or more ingredients have documented environmental or regulatory review activity in some markets.",
+      "advice": "Environmental status varies by market and is not a statement about personal safety."
+    },
+    "restricted": {
+      "label": "Regulatory restriction identified",
+      "severity": "high",
+      "message": "An ingredient with a documented regulatory restriction or prohibition was identified in the ingredient list.",
+      "advice": "Restrictions differ by jurisdiction and by concentration. Verify against the rules of the market where the product is sold."
+    }
+  }
+}

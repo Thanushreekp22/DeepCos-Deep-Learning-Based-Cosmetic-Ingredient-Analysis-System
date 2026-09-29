@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "purpose": "Formulation 'recipes' per product category. DeepCos uses them as weak supervision: real INCI ingredient names are sampled into realistic ordering, and the formulation-profile labels are derived from the ingredient composition (see profile_weights.json). Swap this generator for a real labelled dataset and the network trains unchanged.",
+  "position_groups": {
+    "Aqua": 0, "solvent": 1, "humectant": 1, "skin-conditioning": 2, "emollient": 3, "occlusive": 3,
+    "silicone": 3, "botanical": 3, "cleansing": 3, "uv-filter": 4, "antioxidant": 5, "brightening": 5,
+    "exfoliating": 5, "retinoid": 5, "peptide": 5, "vitamin": 5, "anti-acne": 5, "soothing": 5,
+    "barrier-repair": 5, "emulsifier": 6, "thickener": 7, "preservative": 8, "chelating": 9,
+    "ph-adjuster": 9, "fragrance": 10, "colorant": 11
+  },
+  "categories": {
+    "Serum": {
+      "display_name": "Face Serum",
+      "size_range": [12, 24],
+      "profile_bias": {"hydration": 0.07, "brightening": 0.24, "exfoliation": 0.08, "barrier_support": 0.18},
+      "base_ingredients": [["Aqua", 1.0], ["Butylene Glycol", 0.70], ["Glycerin", 0.85], ["Propanediol", 0.35], ["1,2-Hexanediol", 0.45], ["Sodium Hyaluronate", 0.65], ["Panthenol", 0.45], ["Carbomer", 0.35], ["Xanthan Gum", 0.35]],
+      "slots": {"humectant": [1, 3], "brightening": [0, 2], "soothing": [0, 2], "antioxidant": [0, 2], "peptide": [0, 1], "exfoliating": [0, 1], "barrier-repair": [0, 2], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1]},
+      "fragrance_probability": 0.30,
+      "colorant_probability": 0.05,
+      "shuffle_within_group": 0.30
+    },
+    "Moisturizer": {
+      "display_name": "Moisturizer / Cream",
+      "size_range": [15, 27],
+      "profile_bias": {"hydration": 0.09, "brightening": 0.10, "exfoliation": 0.04, "barrier_support": 0.28},
+      "base_ingredients": [["Aqua", 1.0], ["Glycerin", 0.90], ["Caprylic/Capric Triglyceride", 0.65], ["Cetearyl Alcohol", 0.55], ["Glyceryl Stearate", 0.55], ["Dimethicone", 0.45], ["Panthenol", 0.40], ["Ceramide NP", 0.35], ["Phenoxyethanol", 0.55]],
+      "slots": {"humectant": [1, 3], "emollient": [2, 4], "occlusive": [0, 2], "emulsifier": [1, 3], "thickener": [0, 2], "soothing": [0, 2], "barrier-repair": [0, 3], "brightening": [0, 1], "antioxidant": [0, 1], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1]},
+      "fragrance_probability": 0.45,
+      "colorant_probability": 0.05,
+      "shuffle_within_group": 0.25
+    },
+    "Cleanser": {
+      "display_name": "Facial Cleanser",
+      "size_range": [8, 19],
+      "profile_bias": {"hydration": 0.06, "brightening": 0.04, "exfoliation": 0.10, "barrier_support": 0.10},
+      "base_ingredients": [["Aqua", 1.0], ["Glycerin", 0.70], ["Cocamidopropyl Betaine", 0.60], ["Sodium Cocoyl Isethionate", 0.40], ["Coco-Glucoside", 0.40], ["Panthenol", 0.30]],
+      "slots": {"cleansing": [2, 4], "humectant": [1, 3], "emollient": [0, 2], "soothing": [0, 2], "thickener": [0, 1], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1], "exfoliating": [0, 1], "brightening": [0, 1]},
+      "fragrance_probability": 0.65,
+      "colorant_probability": 0.15,
+      "shuffle_within_group": 0.35
+    },
+    "Sunscreen": {
+      "display_name": "Sunscreen",
+      "size_range": [13, 24],
+      "profile_bias": {"hydration": 0.11, "brightening": 0.06, "exfoliation": 0.02, "barrier_support": 0.22},
+      "base_ingredients": [["Aqua", 0.90], ["Glycerin", 0.65], ["C12-15 Alkyl Benzoate", 0.45], ["Dimethicone", 0.50], ["Ethylhexyl Methoxycinnamate", 0.45], ["Titanium Dioxide", 0.45], ["Zinc Oxide", 0.35], ["Tocopherol", 0.30], ["Phenoxyethanol", 0.60]],
+      "slots": {"uv-filter": [2, 4], "emollient": [1, 3], "humectant": [1, 2], "emulsifier": [1, 3], "thickener": [0, 2], "antioxidant": [0, 2], "soothing": [0, 2], "barrier-repair": [0, 2], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1], "colorant": [0, 1]},
+      "fragrance_probability": 0.35,
+      "colorant_probability": 0.20,
+      "shuffle_within_group": 0.25
+    },
+    "Toner": {
+      "display_name": "Toner",
+      "size_range": [8, 19],
+      "profile_bias": {"hydration": 0.14, "brightening": 0.12, "exfoliation": 0.10, "barrier_support": 0.13},
+      "base_ingredients": [["Aqua", 1.0], ["Butylene Glycol", 0.60], ["Glycerin", 0.70], ["1,2-Hexanediol", 0.45], ["Panthenol", 0.40], ["Allantoin", 0.30]],
+      "slots": {"humectant": [1, 3], "soothing": [0, 3], "brightening": [0, 2], "exfoliating": [0, 2], "botanical": [0, 2], "antioxidant": [0, 1], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1]},
+      "fragrance_probability": 0.40,
+      "colorant_probability": 0.05,
+      "shuffle_within_group": 0.35
+    },
+    "Mask": {
+      "display_name": "Face Mask",
+      "size_range": [12, 23],
+      "profile_bias": {"hydration": 0.15, "brightening": 0.12, "exfoliation": 0.16, "barrier_support": 0.18},
+      "base_ingredients": [["Aqua", 1.0], ["Glycerin", 0.80], ["Butylene Glycol", 0.50], ["Bentonite", 0.30], ["Panthenol", 0.40], ["Bisabolol", 0.25]],
+      "slots": {"humectant": [1, 3], "soothing": [0, 2], "emollient": [1, 3], "occlusive": [0, 2], "exfoliating": [0, 2], "brightening": [0, 2], "antioxidant": [0, 2], "thickener": [0, 2], "emulsifier": [0, 1], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1]},
+      "fragrance_probability": 0.45,
+      "colorant_probability": 0.25,
+      "shuffle_within_group": 0.30
+    },
+    "Exfoliant": {
+      "display_name": "Exfoliating Treatment",
+      "size_range": [8, 18],
+      "profile_bias": {"hydration": 0.06, "brightening": 0.12, "exfoliation": 0.45, "barrier_support": 0.10},
+      "base_ingredients": [["Aqua", 1.0], ["Glycerin", 0.60], ["Glycolic Acid", 0.50], ["Salicylic Acid", 0.45], ["Sodium Hydroxide", 0.55], ["Panthenol", 0.35], ["Allantoin", 0.30]],
+      "slots": {"exfoliating": [2, 4], "humectant": [1, 2], "soothing": [0, 2], "antioxidant": [0, 1], "brightening": [0, 1], "anti-acne": [0, 1], "thickener": [0, 1], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [1, 2]},
+      "fragrance_probability": 0.20,
+      "colorant_probability": 0.05,
+      "shuffle_within_group": 0.25
+    },
+    "Eye Cream": {
+      "display_name": "Eye Cream",
+      "size_range": [14, 25],
+      "profile_bias": {"hydration": 0.15, "brightening": 0.16, "exfoliation": 0.04, "barrier_support": 0.27},
+      "base_ingredients": [["Aqua", 1.0], ["Glycerin", 0.85], ["Caprylic/Capric Triglyceride", 0.60], ["Cetearyl Alcohol", 0.45], ["Glyceryl Stearate", 0.45], ["Dimethicone", 0.40], ["Panthenol", 0.45], ["Squalane", 0.40], ["Niacinamide", 0.40], ["Phenoxyethanol", 0.55]],
+      "slots": {"humectant": [1, 3], "peptide": [0, 2], "emollient": [1, 3], "emulsifier": [1, 3], "barrier-repair": [0, 3], "soothing": [0, 2], "brightening": [0, 2], "antioxidant": [0, 2], "occlusive": [0, 1], "thickener": [0, 2], "preservative": [1, 2], "chelating": [0, 1], "ph-adjuster": [0, 1]},
+      "fragrance_probability": 0.28,
+      "colorant_probability": 0.05,
+      "shuffle_within_group": 0.25
+    }
+  }
+}
