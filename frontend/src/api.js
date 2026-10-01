@@ -61,4 +61,13 @@ export const api = {
   knowledgeFunctions: () => fetch(apiUrl("/api/knowledge/functions")).then(parseJson),
   knowledgeConcerns: () => fetch(apiUrl("/api/knowledge/concerns")).then(parseJson),
   samples: () => fetch(apiUrl("/api/knowledge/samples")).then(parseJson),
+
+  // AI-learned knowledge-base overlay (validated AI enrichment promoted to the
+  // KB; always labelled origin="ai-learned" / review_status="unreviewed").
+  knowledgeLearned: (limit = 50, offset = 0) =>
+    fetch(apiUrl(`/api/knowledge/learned?limit=${limit}&offset=${offset}`)).then(parseJson),
+  deleteLearned: (name) =>
+    fetch(apiUrl(`/api/knowledge/learned?name=${encodeURIComponent(name)}`), {
+      method: "DELETE",
+    }).then(parseJson),
 };

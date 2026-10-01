@@ -22,13 +22,14 @@ from typing import Sequence
 from ml.knowledge_base import IngredientKnowledgeBase, ResolvedIngredient
 
 
-def _ingredients_by_concern(resolved: Sequence[ResolvedIngredient]) -> dict[str, list[str]]:
-    mapping: dict[str, list[str]] = {}
+def _ingredients_by_concern(resolved: Sequence[ResolvedIngredient]) -> dict[str, list[tuple[str, str]]]:
+    """Concern tag -> [(ingredient, origin), ...] where origin is local|ai-learned."""
+    mapping: dict[str, list[tuple[str, str]]] = {}
     for item in resolved:
         if not item.info:
             continue
         for tag in item.info.concerns:
-            mapping.setdefault(tag, []).append(item.inci)
+            mapping.setdefault(tag, []).append((item.inci, item.info.origin))
     return mapping
 
 
@@ -37,24 +38,41 @@ def screen(resolved: Sequence[ResolvedIngredient], kb: IngredientKnowledgeBase) 
     Run the ingredient screening and return the concern block of the report.
 
     Findings are sorted by severity (highest first) and then by how many
-    ingredients triggered the rule.
+    ingredients triggered the rule. Findings that were triggered by an entry
+    from the AI-learned overlay carry ``ai_derived: True`` and a tag with no
+    local rule keeps severity ``info`` plus an explicit "unverified" message.
     """
     by_concern = _ingredients_by_concern(resolved)
     findings: list[dict] = []
 
-    for tag, ingredients in by_concern.items():
+    for tag, hits in by_concern.items():
         rule = kb.concern_rule(tag)
-        severity = str(rule.get("severity", "info"))
+        documented = bool(rule)
+        severity = str(rule.get("severity", "info")) if documented else "info"
+        ingredients = [inci for inci, _ in hits]
+        ai_derived = any(origin == "ai-learned" for _, origin in hits)
         findings.append(
             {
                 "tag": tag,
                 "label": rule.get("label", tag.replace("-", " ").title()),
                 "severity": severity,
                 "severity_rank": kb.severity_rank(severity),
-                "message": rule.get("message", ""),
-                "advice": rule.get("advice", ""),
+                "message": rule.get("message", "")
+                if documented
+                else (
+                    "AI enrichment flagged this characteristic for an ingredient that is not in "
+                    "the verified local knowledge base; treat it as unverified information."
+                ),
+                "advice": rule.get("advice", "")
+                if documented
+                else (
+                    "Check the ingredient against a regulatory or dermatological source before "
+                    "drawing conclusions."
+                ),
                 "ingredients": sorted(set(ingredients)),
                 "ingredient_count": len(set(ingredients)),
+                "documented_rule": documented,
+                "ai_derived": ai_derived,
             }
         )
 
@@ -79,6 +97,8 @@ def screen(resolved: Sequence[ResolvedIngredient], kb: IngredientKnowledgeBase) 
     )
     has_uv_filter = any(item.info and "uv-filter" in item.info.functions for item in resolved)
 
+    ai_derived_findings = [f for f in findings if f["ai_derived"]]
+
     summary_bits: list[str] = []
     if has_fragrance:
         summary_bits.append("fragrance material detected")
@@ -88,6 +108,10 @@ def screen(resolved: Sequence[ResolvedIngredient], kb: IngredientKnowledgeBase) 
         summary_bits.append("preservative system identified")
     if has_uv_filter:
         summary_bits.append("UV filter present")
+    if ai_derived_findings:
+        summary_bits.append(
+            f"{len(ai_derived_findings)} characteristic(s) come from unreviewed AI-learned entries"
+        )
     if not summary_bits:
         summary_bits.append(
             "no fragrance, exfoliating acid or restricted ingredient flagged"
@@ -102,6 +126,7 @@ def screen(resolved: Sequence[ResolvedIngredient], kb: IngredientKnowledgeBase) 
             else "Information"
         ),
         "regulatory_notes": regulatory,
+        "ai_derived_count": len(ai_derived_findings),
         "flags": {
             "fragrance": has_fragrance,
             "exfoliating_acid": has_exfoliating,
@@ -143,6 +168,9 @@ def ingredient_breakdown(
 
     Each row carries the documented functions (with human labels), the reference
     note, the concern tags and whether the knowledge base recognised the name.
+    ``origin``/``review_status`` tell verified reference data (``local`` /
+    ``verified``) apart from entries promoted by AI enrichment (``ai-learned`` /
+    ``unreviewed``).
     """
     rows: list[dict] = []
     for position, item in enumerate(resolved):
@@ -161,6 +189,9 @@ def ingredient_breakdown(
                 "note": item.info.note if item.info else "",
                 "concerns": list(item.info.concerns) if item.info else [],
                 "regulatory_status": item.info.regulatory_status if item.info else "unknown",
+                "origin": item.info.origin if item.info else "unknown",
+                "review_status": item.info.review_status if item.info else "unknown",
+                "ai_learned": bool(item.info and item.info.learned),
             }
         )
     return rows

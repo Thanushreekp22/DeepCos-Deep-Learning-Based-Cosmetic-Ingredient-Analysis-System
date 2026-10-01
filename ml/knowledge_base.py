@@ -6,6 +6,16 @@ facts - what an ingredient is normally used for, which characteristics are
 associated with it and which regulatory notes exist - are looked up here
 instead of being memorised by the network.
 
+Two data sources are merged, and they never mix silently:
+
+* ``data/knowledge_base/ingredients.json`` - curated, verified reference data
+  (``origin="local"``, ``review_status="verified"``);
+* ``data/knowledge_base/learned_ingredients.json`` - the *AI-learned overlay*
+  written by the optional enrichment feature when it is allowed to promote a
+  validated lookup result (``origin="ai-learned"``,
+  ``review_status="unreviewed"``). Verified entries always win; the overlay can
+  be listed and deleted through the API.
+
 Public API
 ----------
 normalize_ingredient_name(name) -> str
@@ -79,6 +89,14 @@ class IngredientInfo:
     common: bool = False
     regulatory_status: str = "allowed"
     regulatory_note: str = ""
+    # "local" = curated reference data; "ai-learned" = promoted AI enrichment.
+    origin: str = "local"
+    review_status: str = "verified"
+
+    @property
+    def learned(self) -> bool:
+        """True when the entry came from the AI-learned overlay."""
+        return self.origin != "local"
 
     def to_dict(self) -> dict:
         return {
@@ -90,6 +108,8 @@ class IngredientInfo:
             "common": self.common,
             "regulatory_status": self.regulatory_status,
             "regulatory_note": self.regulatory_note,
+            "origin": self.origin,
+            "review_status": self.review_status,
         }
 
 
@@ -101,7 +121,8 @@ class ResolvedIngredient:
     key: str
     info: Optional[IngredientInfo] = None
     match_score: float = 0.0
-    match_type: str = "unknown"  # exact | alias | fuzzy | unknown
+    # exact | alias | fuzzy | learned | learned-alias | learned-fuzzy | unknown
+    match_type: str = "unknown"
 
     @property
     def inci(self) -> str:
@@ -137,10 +158,13 @@ class IngredientKnowledgeBase:
         kb_path: Path | str | None = None,
         concern_rules_path: Path | str | None = None,
         fuzzy_cutoff: float = 0.86,
+        learned_path: Path | str | None = None,
     ) -> None:
         self.kb_path = Path(kb_path or config.INGREDIENT_KB_PATH)
         self.concern_rules_path = Path(concern_rules_path or config.CONCERN_RULES_PATH)
+        self.learned_path = Path(learned_path or config.LEARNED_INGREDIENTS_PATH)
         self.fuzzy_cutoff = fuzzy_cutoff
+        self.learned_entries: dict[str, dict] = {}
 
         raw = json.loads(self.kb_path.read_text(encoding="utf-8"))
         self.version: str = raw.get("version", "unknown")
@@ -181,14 +205,13 @@ class IngredientKnowledgeBase:
                 ),
             )
 
+        # AI-learned overlay: promoted AI enrichment entries, loaded after the
+        # verified data so a curated entry can never be shadowed by AI output.
+        self._load_learned_overlay()
+
         # Lookup index: normalised INCI name + every alias --------------------
         self._index: dict[str, str] = {}
-        for key, info in self.ingredients.items():
-            self._index[key] = key
-            for alias in info.aliases:
-                alias_key = normalize_ingredient_name(alias)
-                if alias_key:
-                    self._index.setdefault(alias_key, key)
+        self._build_index()
 
         # Concern rules ------------------------------------------------------
         self.concern_rules: dict[str, dict] = {}
@@ -197,6 +220,91 @@ class IngredientKnowledgeBase:
             rules_raw = json.loads(self.concern_rules_path.read_text(encoding="utf-8"))
             self.concern_rules = rules_raw.get("rules", {})
             self.concern_severities = rules_raw.get("severities", {})
+
+    # -- AI-learned overlay -------------------------------------------------
+    def _build_index(self) -> None:
+        self._index = {}
+        for key, info in self.ingredients.items():
+            self._index[key] = key
+            for alias in info.aliases:
+                alias_key = normalize_ingredient_name(alias)
+                if alias_key:
+                    self._index.setdefault(alias_key, key)
+
+    def _load_learned_overlay(self) -> None:
+        """Read the promoted-AI overlay file (missing/broken file = no overlay)."""
+        from ml.learned_store import load_overlay_records
+
+        for record in load_overlay_records(self.learned_path):
+            key = str(
+                record.get("normalized_key") or normalize_ingredient_name(record.get("inci", ""))
+            )
+            if key:
+                self.learned_entries[key] = record
+        self._apply_learned_entries()
+
+    def _apply_learned_entries(self) -> None:
+        for key, record in self.learned_entries.items():
+            if key in self.ingredients:
+                continue  # verified reference data always wins
+            self.ingredients[key] = self._learned_info(record)
+
+    @staticmethod
+    def _learned_info(record: dict) -> IngredientInfo:
+        key = str(record.get("normalized_key", ""))
+        inci = str(record.get("inci") or titlecase_ingredient(key))
+        aliases = [str(alias) for alias in record.get("aliases", []) if alias]
+        requested = str(record.get("requested_name", "") or "")
+        if requested and normalize_ingredient_name(requested) not in {
+            normalize_ingredient_name(inci),
+            key,
+        }:
+            aliases.append(requested)
+        return IngredientInfo(
+            inci=inci,
+            aliases=tuple(dict.fromkeys(aliases)),
+            functions=tuple(str(fn) for fn in record.get("functions", []) if fn),
+            concerns=tuple(str(tag) for tag in record.get("concerns", []) if tag),
+            note=str(record.get("note", "")),
+            common=False,
+            regulatory_status=str(record.get("regulatory_status", "unknown")),
+            regulatory_note=str(record.get("regulatory_note", "")),
+            origin=str(record.get("origin", "ai-learned")),
+            review_status=str(record.get("review_status", "unreviewed")),
+        )
+
+    def add_learned(self, record: dict) -> Optional[IngredientInfo]:
+        """
+        Overlay one promoted entry at runtime (so the *next* analysis in this
+        process resolves it without an AI call). Verified entries always win.
+        """
+        key = str(
+            record.get("normalized_key") or normalize_ingredient_name(record.get("inci", ""))
+        )
+        if not key:
+            return None
+        existing = self.ingredients.get(key)
+        if existing is not None and not existing.learned:
+            return existing
+        self.learned_entries[key] = record
+        self.ingredients[key] = self._learned_info(record)
+        self._build_index()
+        return self.ingredients[key]
+
+    def remove_learned(self, key: str) -> bool:
+        normalized = normalize_ingredient_name(key)
+        if normalized not in self.learned_entries:
+            return False
+        del self.learned_entries[normalized]
+        self.ingredients.pop(normalized, None)
+        self._build_index()
+        return True
+
+    def learned_count(self) -> int:
+        return len(self.learned_entries)
+
+    def learned_records(self) -> list[dict]:
+        return [dict(record) for record in self.learned_entries.values()]
 
     # -- basics ------------------------------------------------------------
     def __len__(self) -> int:
@@ -237,23 +345,30 @@ class IngredientKnowledgeBase:
 
         exact_key = self._index.get(key)
         if exact_key:
+            info = self.ingredients[exact_key]
+            exact = exact_key == key
+            if info.learned:
+                match_type = "learned" if exact else "learned-alias"
+            else:
+                match_type = "exact" if exact else "alias"
             return ResolvedIngredient(
                 raw=raw,
                 key=key,
-                info=self.ingredients[exact_key],
+                info=info,
                 match_score=1.0,
-                match_type="exact" if exact_key == key else "alias",
+                match_type=match_type,
             )
 
         if allow_fuzzy:
             fuzzy_key, score = self._fuzzy_key(key)
             if fuzzy_key:
+                info = self.ingredients[fuzzy_key]
                 return ResolvedIngredient(
                     raw=raw,
                     key=key,
-                    info=self.ingredients[fuzzy_key],
+                    info=info,
                     match_score=score,
-                    match_type="fuzzy",
+                    match_type="learned-fuzzy" if info.learned else "fuzzy",
                 )
         return ResolvedIngredient(raw=raw, key=key, match_type="unknown", match_score=0.0)
 
@@ -320,10 +435,13 @@ class IngredientKnowledgeBase:
         return {
             "version": self.version,
             "ingredient_count": len(self.ingredients),
+            "verified_ingredient_count": len(self.ingredients) - len(self.learned_entries),
             "alias_count": max(0, len(self._index) - len(self.ingredients)),
             "function_taxonomy_count": len(self.function_taxonomy),
             "concern_rule_count": len(self.concern_rules),
             "restricted_entries": len(self.restricted),
+            "learned_count": len(self.learned_entries),
+            "learned_overlay": self.learned_path.name,
             "top_functions": [list(item) for item in function_counts.most_common(12)],
             "top_concerns": [list(item) for item in concern_counts.most_common(12)],
         }

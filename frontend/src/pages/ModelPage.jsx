@@ -1,6 +1,20 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "../api.js";
-import { Empty, ErrorBanner, Meter, Spinner } from "../components/ui.jsx";
+import { Disclosure, Empty, ErrorBanner, Meter, Spinner } from "../components/ui.jsx";
+
+// Vertical flow diagram: Node → Node → ...
+function Flow({ steps }) {
+  return (
+    <div className="flow">
+      {steps.map((step, i) => (
+        <Fragment key={step}>
+          <div className={`flow-node${i === steps.length - 1 ? " accent" : ""}`}>{step}</div>
+          {i < steps.length - 1 && <div className="flow-arrow">↓</div>}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
 
 function AvailabilityRow({ label, ok, detail }) {
   return (
@@ -20,6 +34,8 @@ function AvailabilityRow({ label, ok, detail }) {
   );
 }
 
+// CNN vision metrics - the test-set context is always attached, especially
+// important when a metric reads 100%.
 function CnnMetrics({ title, data }) {
   if (!data) return null;
   const m = data.metrics || {};
@@ -27,8 +43,8 @@ function CnnMetrics({ title, data }) {
     <div className="card">
       <h3>{title}</h3>
       <div className="small muted" style={{ marginBottom: 10 }}>
-        {data.task} · trained {data.trained_at || "—"}
-        {data.training_seconds ? ` · ${Math.round(data.training_seconds)}s` : ""}
+        Evaluated on the available image test set
+        {data.dataset?.splits?.test ? ` (${data.dataset.splits.test} samples)` : ""}
       </div>
       <Meter label="Accuracy" value={m.accuracy} />
       <Meter label="Macro F1" value={m.macro_f1} />
@@ -62,188 +78,230 @@ export default function ModelPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Models</h1>
+          <h1>How DeepCos analyzes ingredients</h1>
           <p>
-            The trained artefacts behind every report: an Embedding→LSTM→MLP multi-task network
-            for formulation profiling, plus two AlexNet-style CNNs (ingredient text-region
-            detection and label category recognition).
+            A simplified technical overview of the models behind every report. The normal interface
+            stays plain-language; this page is for inspection during a project demo.
           </p>
         </div>
       </div>
 
       <ErrorBanner error={error} />
 
-      <div className="grid cols-2">
+      <div className="report-section">
+        <h2>Ingredient Sequence Model</h2>
         <div className="card">
-          <h3>Availability</h3>
-          {info === null ? (
-            <Spinner />
-          ) : (
-            <>
-              <AvailabilityRow
-                label="Ingredient model (LSTM + MLP heads)"
-                ok={info.ingredient_model}
-                detail={base(info.ingredient_model_path) || "missing"}
-              />
-              <AvailabilityRow
-                label="Ingredient vocabulary"
-                ok={!!info.vocabulary_path}
-                detail={base(info.vocabulary_path) || "missing"}
-              />
-              <AvailabilityRow
-                label="Text-region CNN"
-                ok={info.text_region_cnn}
-                detail={info.text_region_cnn ? "loaded at startup" : "train it"}
-              />
-              <AvailabilityRow
-                label="Label-category CNN"
-                ok={info.label_category_cnn}
-                detail={info.label_category_cnn ? "loaded at startup" : "train it"}
-              />
-              <AvailabilityRow
-                label="Text detector integration"
-                ok={info.text_detector_loaded}
-                detail={info.text_detector_loaded ? "wired into /api/analyze/image" : "fallback OCR"}
-              />
-              <AvailabilityRow
-                label="OCR (Tesseract)"
-                ok={info.ocr?.available}
-                detail={
-                  info.ocr?.available ? `v${info.ocr.version}` : info.ocr?.hint || "unavailable"
-                }
-              />
-              <AvailabilityRow
-                label="Knowledge base"
-                ok={(info.knowledge_base?.ingredient_count ?? 0) > 0}
-                detail={
-                  info.knowledge_base
-                    ? `v${info.knowledge_base.version} · ${info.knowledge_base.ingredient_count} ingredients`
-                    : "—"
-                }
-              />
-              {info.hint ? <div className="small muted mt">{info.hint}</div> : null}
-            </>
-          )}
-        </div>
-
-        <div className="card">
-          <h3>Ingredient model · held-out test</h3>
-          {!ing ? (
-            <Empty
-              glyph="◫"
-              title="No metrics file yet"
-              hint="Run python -m ml.train_ingredient_model"
-            />
-          ) : (
-            <>
-              <div className="small muted" style={{ marginBottom: 10 }}>
-                trained {ing.trained_at} · {Math.round(ing.training_seconds || 0)}s ·{" "}
-                {(ing.vocabulary_size ?? 0).toLocaleString()} tokens
-              </div>
-              <Meter label="Category accuracy" value={cat.accuracy} note="8-class product head" />
-              <Meter label="Category macro F1" value={cat.macro_f1} />
-              <div className="spread small" style={{ marginTop: 4 }}>
-                <span className="muted">Test loss</span>
-                <span>{ing.test_loss != null ? Number(ing.test_loss).toFixed(4) : "—"}</span>
-              </div>
-              <div className="mt small" style={{ fontWeight: 700, marginBottom: 6 }}>
-                Profile regression (per metric)
-              </div>
-              {Object.entries(prof).map(([name, v]) => (
-                <div key={name} className="meter">
-                  <div className="meter-head">
-                    <span style={{ textTransform: "capitalize" }}>
-                      {name.replace(/_/g, " ")}
-                    </span>
-                    <span className="val">
-                      MAE {Number(v.mae).toFixed(3)} · R² {Number(v.r2).toFixed(3)}
-                    </span>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill gold"
-                      style={{ width: `${Math.round((v.band_accuracy || 0) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="small muted" style={{ marginTop: 3 }}>
-                    band accuracy {Math.round((v.band_accuracy || 0) * 100)}%
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+          <Flow
+            steps={[
+              "Ingredients",
+              "Embedding",
+              "LSTM",
+              "Prediction Heads",
+              "Product Type + Formulation Profiles",
+            ]}
+          />
+          <dl className="kv mt">
+            <dt>Embedding</dt>
+            <dd>Converts ingredient names into numerical representations.</dd>
+            <dt>LSTM</dt>
+            <dd>Learns patterns from the order and combination of ingredients.</dd>
+            <dt>Prediction heads</dt>
+            <dd>Generate product category and formulation-profile predictions.</dd>
+          </dl>
         </div>
       </div>
 
       <div className="report-section">
-        <h2>Per-category breakdown</h2>
-        {!cat.per_category ? (
-          <Empty glyph="▦" title="No per-category metrics on this record" />
+        <h2>Model Performance</h2>
+        {!ing ? (
+          <Empty
+            glyph="◫"
+            title="No metrics available yet"
+            hint="Train the ingredient model to populate performance metrics."
+          />
         ) : (
-          <div className="card" style={{ overflowX: "auto" }}>
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>Precision</th>
-                  <th>Recall</th>
-                  <th>F1</th>
-                  <th>Support</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(cat.per_category).map(([name, v]) => (
-                  <tr key={name}>
-                    <td>
-                      <strong>{name}</strong>
-                    </td>
-                    <td className="num">{Number(v.precision).toFixed(3)}</td>
-                    <td className="num">{Number(v.recall).toFixed(3)}</td>
-                    <td className="num">{Number(v.f1).toFixed(3)}</td>
-                    <td className="num">{v.support}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid cols-2">
+            <div className="card">
+              <h3>Product category classification</h3>
+              <Meter label="Accuracy" value={cat.accuracy} />
+              <Meter label="Macro F1" value={cat.macro_f1} />
+            </div>
+            <div className="card">
+              <h3>Formulation prediction</h3>
+              {Object.keys(prof).length === 0 ? (
+                <span className="muted small">No profile metrics available.</span>
+              ) : (
+                Object.entries(prof).map(([name, v]) => (
+                  <div key={name} className="meter">
+                    <div className="meter-head">
+                      <span style={{ textTransform: "capitalize" }}>{name.replace(/_/g, " ")}</span>
+                      <span className="val">R² {Number(v.r2).toFixed(2)}</span>
+                    </div>
+                    <div className="meter-track">
+                      <div
+                        className="meter-fill gold"
+                        style={{
+                          width: `${Math.round(Math.max(0, Math.min(1, Number(v.r2))) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+              <div className="small muted mt">
+                R² shows how well the model explains each formulation characteristic on held-out
+                data (higher is better).
+              </div>
+            </div>
           </div>
+        )}
+        {cat.per_category && (
+          <Disclosure title="Per-category detail">
+            <div className="card" style={{ overflowX: "auto" }}>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F1</th>
+                    <th>Support</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(cat.per_category).map(([name, v]) => (
+                    <tr key={name}>
+                      <td>
+                        <strong>{name}</strong>
+                      </td>
+                      <td className="num">{Number(v.precision).toFixed(3)}</td>
+                      <td className="num">{Number(v.recall).toFixed(3)}</td>
+                      <td className="num">{Number(v.f1).toFixed(3)}</td>
+                      <td className="num">{v.support}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Disclosure>
         )}
       </div>
 
       <div className="report-section">
-        <h2>CNN metrics</h2>
-        <div className="grid cols-2">
-          <CnnMetrics title="Ingredient text-region detector" data={metrics?.text_region_cnn} />
-          <CnnMetrics title="Label category CNN" data={metrics?.label_cnn} />
+        <h2>Image Analysis</h2>
+        <div className="card">
+          <Flow
+            steps={[
+              "Product label image",
+              "Image processing",
+              "CNN-based text-region detection",
+              "OCR",
+              "Ingredient text",
+            ]}
+          />
+          <p className="small muted" style={{ margin: "14px 0 0" }}>
+            The vision pipeline identifies the relevant text region and OCR converts the ingredient
+            label into text for analysis.
+          </p>
         </div>
       </div>
 
       <div className="report-section">
-        <h2>Training curves</h2>
+        <h2>Vision Pipeline</h2>
+        <div className="grid cols-2">
+          <CnnMetrics title="Text-region detection" data={metrics?.text_region_cnn} />
+          <CnnMetrics title="Label category recognition" data={metrics?.label_cnn} />
+        </div>
+      </div>
+
+      <div className="report-section">
+        <h2>Explainability</h2>
+        <div className="card">
+          <p style={{ marginTop: 0 }}>DeepCos uses ingredient-level occlusion analysis.</p>
+          <p>
+            Each ingredient is temporarily removed from the input. The prediction is recalculated
+            and compared with the original prediction.
+          </p>
+          <p style={{ marginBottom: 0 }}>
+            This identifies ingredients that support or reduce each predicted formulation profile.
+          </p>
+        </div>
+      </div>
+
+      <div className="report-section">
+        <h2>Training Behaviour</h2>
         <div className="card">
           <img
             src={api.curvesUrl()}
-            alt="Training curves for all models"
+            alt="Training and validation loss curves"
             style={{ width: "100%", borderRadius: 10, display: "block" }}
             onError={(e) => {
               e.currentTarget.style.display = "none";
             }}
           />
           <div className="small muted mt">
-            Loss and metric history exported by the training scripts (keep
-            artifacts/models/curves.png).
+            Training and validation loss recorded by the training scripts.
           </div>
         </div>
       </div>
 
-      <div className="report-section">
-        <h2>Reproduce training</h2>
+      <Disclosure title="Model availability">
+        {info === null ? (
+          <Spinner />
+        ) : (
+          <>
+            <AvailabilityRow
+              label="Ingredient sequence model"
+              ok={info.ingredient_model}
+              detail={base(info.ingredient_model_path) || "missing"}
+            />
+            <AvailabilityRow
+              label="Ingredient vocabulary"
+              ok={!!info.vocabulary_path}
+              detail={base(info.vocabulary_path) || "missing"}
+            />
+            <AvailabilityRow
+              label="Text-region CNN"
+              ok={info.text_region_cnn}
+              detail={info.text_region_cnn ? "loaded at startup" : "not trained"}
+            />
+            <AvailabilityRow
+              label="Label-category CNN"
+              ok={info.label_category_cnn}
+              detail={info.label_category_cnn ? "loaded at startup" : "not trained"}
+            />
+            <AvailabilityRow
+              label="Text detector integration"
+              ok={info.text_detector_loaded}
+              detail={info.text_detector_loaded ? "wired into /api/analyze/image" : "fallback OCR"}
+            />
+            <AvailabilityRow
+              label="OCR (Tesseract)"
+              ok={info.ocr?.available}
+              detail={info.ocr?.available ? `v${info.ocr.version}` : info.ocr?.hint || "unavailable"}
+            />
+            <AvailabilityRow
+              label="Knowledge base"
+              ok={(info.knowledge_base?.ingredient_count ?? 0) > 0}
+              detail={
+                info.knowledge_base
+                  ? `v${info.knowledge_base.version} · ${info.knowledge_base.ingredient_count} ingredients`
+                  : "—"
+              }
+            />
+            {info.hint ? <div className="small muted mt">{info.hint}</div> : null}
+          </>
+        )}
+      </Disclosure>
+
+      <Disclosure title="Reproduce training">
         <div className="mono">
 {`python -m ml.generate_dataset            # build dataset + splits
 python -m ml.train_ingredient_model       # Embedding->LSTM->MLP (multi-task)
 python -m ml.train_label_cnn              # AlexNet-style label category CNN
 python -m ml.train_text_region_detector   # ingredient text region detector`}
         </div>
-      </div>
+      </Disclosure>
     </>
   );
 }

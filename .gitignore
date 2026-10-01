@@ -23,8 +23,17 @@ data/raw/*
 data/synthetic/
 
 # --- Runtime -----------------------------------------------------------------
+# Local environment files may contain secrets (MongoDB URI, GROQ_API_KEY, ...)
+# and must never be committed.
 .env
+.env.*
+!.env.example
 *.log
 .vscode/
 .idea/
 .DS_Store
+
+# AI-learned knowledge-base overlay: generated at runtime from *unreviewed* AI
+# enrichment. It is served locally, but it is not curated reference data, so it
+# is not committed by default - use `git add -f <file>` if you want to ship it.
+data/knowledge_base/learned_ingredients.json

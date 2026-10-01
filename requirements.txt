@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # DeepCos - Deep Learning based Cosmetic Ingredient Analysis System
-# Python 3.11 (tested) / TensorFlow 2.21 + Keras 3
+# Python 3.11 (tested) / TensorFlow 2.21 + Keras 3 
 # ---------------------------------------------------------------------------
 
 # --- Deep Learning core -----------------------------------------------------
@@ -26,9 +26,16 @@ uvicorn[standard]==0.52.4
 python-multipart==0.0.32
 pydantic==2.13.5
 python-dotenv==1.2.3
+# HTTP client used by the optional Groq AI-enrichment service
+requests==2.34.2
 
 # --- Database ---------------------------------------------------------------
 pymongo==4.17.0
+
+# --- Tests ------------------------------------------------------------------
+pytest==9.1.1
+# HTTP client required by starlette.testclient (API endpoint tests)
+httpx2==2.13.1
 
 # --- Visualisation / reporting ---------------------------------------------
 matplotlib==3.11.1

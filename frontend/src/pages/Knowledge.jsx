@@ -1,42 +1,45 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { Chip, Empty, ErrorBanner, Spinner } from "../components/ui.jsx";
 
 export default function Knowledge() {
-  const [stats, setStats] = useState(null);
-  const [query, setQuery] = useState("");
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(params.get("q") || "");
   const [results, setResults] = useState(null);
   const [detail, setDetail] = useState(null);
-  const [functions, setFunctions] = useState([]);
-  const [concerns, setConcerns] = useState([]);
   const [error, setError] = useState("");
   const [searching, setSearching] = useState(false);
 
-  useEffect(() => {
-    api.knowledgeStats().then(setStats).catch((err) => setError(err.message));
-    api.knowledgeFunctions().then((d) => setFunctions(d.taxonomy || [])).catch(() => {});
-    api
-      .knowledgeConcerns()
-      .then((d) => {
-        // rules is a map of tag -> {label, severity, message, advice}
-        setConcerns(Object.entries(d.rules || {}).map(([tag, rule]) => ({ tag, ...rule })));
-      })
-      .catch(() => {});
-  }, []);
-
-  const search = async (e) => {
-    e?.preventDefault();
+  const runSearch = async (term) => {
+    const value = (term ?? query).trim();
+    if (!value) return;
     setSearching(true);
     setError("");
     setDetail(null);
     try {
-      const data = await api.knowledgeSearch(query.trim());
+      const data = await api.knowledgeSearch(value);
       setResults(data.results || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setSearching(false);
     }
+  };
+
+  // The sidebar search box can deep-link here with ?q=<ingredient>.
+  useEffect(() => {
+    const q = params.get("q");
+    if (q) {
+      setQuery(q);
+      runSearch(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const search = (e) => {
+    e.preventDefault();
+    runSearch();
   };
 
   const openDetail = async (name) => {
@@ -51,41 +54,18 @@ export default function Knowledge() {
     <>
       <div className="page-head">
         <div>
-          <h1>Knowledge base</h1>
-          <p>
-            Local, source-documented ingredient data used by the rule engine: INCI facts,
-            functional taxonomy and concern rules with confidence levels.
-          </p>
+          <h1>Ingredient Guide</h1>
+          <p>Search an ingredient to see what it is and what it does.</p>
         </div>
       </div>
 
       <ErrorBanner error={error} />
 
-      <div className="grid cols-4">
-        <div className="card">
-          <h3>Ingredients</h3>
-          <div className="big">{stats?.ingredient_count ?? "—"}</div>
-        </div>
-        <div className="card">
-          <h3>Functions</h3>
-          <div className="big">{stats?.function_taxonomy_count ?? functions.length}</div>
-        </div>
-        <div className="card">
-          <h3>Concern rules</h3>
-          <div className="big">{stats?.concern_rule_count ?? concerns.length}</div>
-        </div>
-        <div className="card">
-          <h3>Aliases</h3>
-          <div className="big">{stats?.alias_count ?? "—"}</div>
-        </div>
-      </div>
-
-      <div className="report-section">
-        <h2>Search</h2>
+      <div className="card">
         <form onSubmit={search} className="row" style={{ alignItems: "stretch" }}>
           <input
             type="search"
-            placeholder="e.g. niacinamide, retinol, fragrance, preservative…"
+            placeholder="Search an ingredient... e.g. niacinamide, retinol"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{ flex: 1, minWidth: 240 }}
@@ -94,130 +74,76 @@ export default function Knowledge() {
             {searching ? "Searching…" : "Search"}
           </button>
         </form>
+      </div>
 
-        {searching ? (
-          <Spinner />
-        ) : results === null ? (
-          <Empty glyph="⌕" title="Search the ingredient knowledge base" />
-        ) : results.length === 0 ? (
-          <Empty glyph="⌀" title="No matches" hint="Try a partial name or a function word." />
-        ) : (
-          <div className="grid cols-2 mt">
-            {results.map((item) => (
-              <div
-                key={item.inci}
-                className="card clickable"
-                onClick={() => openDetail(item.inci)}
-              >
-                <div className="spread">
-                  <strong>{item.inci}</strong>
-                  <span className="small muted">{item.common ? "common" : ""}</span>
-                </div>
+      {searching ? (
+        <Spinner />
+      ) : results === null ? (
+        <Empty
+          glyph="⌕"
+          title="Search the ingredient guide"
+          hint="Try an ingredient name, e.g. niacinamide."
+        />
+      ) : results.length === 0 ? (
+        <Empty glyph="⌀" title="No matches" hint="Try a partial name or a function word." />
+      ) : (
+        <div className="grid cols-2 mt">
+          {results.map((item) => (
+            <div key={item.inci} className="card clickable" onClick={() => openDetail(item.inci)}>
+              <strong>{item.inci}</strong>
+              {(item.functions || []).length > 0 ? (
                 <div className="row" style={{ marginTop: 8 }}>
                   {(item.functions || []).slice(0, 4).map((f) => (
-                    <Chip key={f} tone="lilac">
-                      {f}
-                    </Chip>
-                  ))}
-                  {(item.concerns || []).map((c) => (
-                    <Chip key={c} tone="rose">
-                      {c}
-                    </Chip>
+                    <Chip key={f} tone="lilac">{f}</Chip>
                   ))}
                 </div>
-                {item.note ? (
-                  <div className="small muted" style={{ marginTop: 8 }}>
-                    {item.note}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {detail && (
-          <div className="card mt">
-            <div className="spread">
-              <h3 style={{ margin: 0 }}>{detail.inci || detail.raw || detail.name || "Ingredient"}</h3>
-              <button className="btn small" onClick={() => setDetail(null)}>
-                ✕ Close
-              </button>
+              ) : null}
             </div>
-            <dl className="kv mt">
-              <dt>INCI name</dt>
-              <dd>{detail.inci || detail.raw || "—"}</dd>
-              <dt>Match</dt>
-              <dd>
-                {detail.match_type || "—"}
-                {detail.match_score != null ? ` · score ${Number(detail.match_score).toFixed(2)}` : ""}
-              </dd>
-              <dt>Aliases</dt>
-              <dd>{(detail.info?.aliases || []).join(", ") || "—"}</dd>
-              <dt>Functions</dt>
-              <dd>{(detail.functions || []).join(", ") || "—"}</dd>
-              <dt>Concerns</dt>
-              <dd>{(detail.concerns || []).join(", ") || "none documented"}</dd>
-              <dt>Description</dt>
-              <dd>{detail.info?.note || "—"}</dd>
-              <dt>Regulatory</dt>
-              <dd>
-                {detail.info?.regulatory_status || "—"}
-                {detail.info?.regulatory_note ? ` · ${detail.info.regulatory_note}` : ""}
-              </dd>
-            </dl>
-          </div>
-        )}
-      </div>
-
-      <div className="report-section">
-        <h2>Function taxonomy</h2>
-        <div className="row">
-          {functions.map((f) => (
-            <Chip key={f.tag} tone="gold" >
-              {f.label || f.tag}
-            </Chip>
           ))}
-          {functions.length === 0 && <span className="muted small">Loading…</span>}
         </div>
-      </div>
+      )}
 
-      <div className="report-section">
-        <h2>Concern rules</h2>
-        {concerns.length === 0 ? (
-          <Empty glyph="⚠" title="Loading rules…" />
-        ) : (
-          <div className="card" style={{ overflowX: "auto" }}>
-            <table className="data">
-              <thead>
-                <tr>
-                  <th>Rule</th>
-                  <th>Tag</th>
-                  <th>Severity</th>
-                  <th>Message</th>
-                  <th>Advice</th>
-                </tr>
-              </thead>
-              <tbody>
-                {concerns.map((c, i) => (
-                  <tr key={`${c.tag}-${i}`}>
-                    <td>
-                      <strong>{c.label || c.tag}</strong>
-                    </td>
-                    <td className="muted">{c.tag}</td>
-                    <td>
-                      <span className={`sev ${(c.severity || "low").toLowerCase()}`}>
-                        {c.severity || "low"}
-                      </span>
-                    </td>
-                    <td className="muted">{c.message || "—"}</td>
-                    <td className="muted">{c.advice || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {detail && (
+        <div className="card mt">
+          <div className="spread">
+            <h3 style={{ margin: 0 }}>{detail.inci || detail.raw || detail.name || "Ingredient"}</h3>
+            <button className="btn small" onClick={() => setDetail(null)}>✕ Close</button>
           </div>
-        )}
-      </div>
+          <div className="guide-block">
+            <div className="guide-label">What it is</div>
+            <div>{detail.info?.note || "No description available."}</div>
+          </div>
+          <div className="guide-block">
+            <div className="guide-label">Functions</div>
+            {(detail.functions || []).length > 0 ? (
+              <ul className="guide-list">
+                {(detail.functions || []).map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="muted">No documented functions.</span>
+            )}
+          </div>
+          {(detail.concerns || []).length > 0 ? (
+            <div className="guide-block">
+              <div className="guide-label">Documented considerations</div>
+              <div className="row">
+                {(detail.concerns || []).map((c) => (
+                  <Chip key={c.tag || c} tone="rose">{c.label || c.tag || c}</Chip>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="guide-block">
+            <div className="guide-label">DeepCos information</div>
+            <div className="small muted">
+              Used as an ingredient reference when analyzing cosmetic formulations.
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

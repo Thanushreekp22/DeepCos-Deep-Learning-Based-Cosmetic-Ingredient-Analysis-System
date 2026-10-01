@@ -19,6 +19,7 @@ from typing import Any, Optional
 
 from backend import config
 from backend.database import AnalysisStore, get_store
+from backend.services.ingredient_enrichment import get_enricher
 from ml.inference import analyze as run_analysis
 from ml.rules.report_builder import to_markdown, to_text
 
@@ -39,7 +40,7 @@ class AnalysisError(RuntimeError):
 def analyse_text(text: str, *, explain: bool = True, persist: bool = True) -> dict:
     """Run the ingredient-analysis pipeline on a typed / pasted list."""
     try:
-        report = run_analysis(text=text, explain=explain)
+        report = run_analysis(text=text, explain=explain, enricher=get_enricher())
     except RuntimeError as exc:  # model not trained yet
         raise AnalysisError(str(exc), status_code=503, hint="Train the ingredient model first: python -m ml.train_ingredient_model") from exc
     except ValueError as exc:
@@ -65,6 +66,7 @@ def analyse_image(
             image_bytes=image_bytes,
             explain=explain,
             max_ocr_variants=max_ocr_variants,
+            enricher=get_enricher(),
         )
     except RuntimeError as exc:
         raise AnalysisError(

@@ -4,7 +4,6 @@ import { api } from "../api.js";
 import { ErrorBanner, Spinner } from "../components/ui.jsx";
 
 export default function Analyze() {
-  const [mode, setMode] = useState("text");
   const [text, setText] = useState("");
   const [samples, setSamples] = useState([]);
   const [file, setFile] = useState(null);
@@ -28,22 +27,28 @@ export default function Analyze() {
     setError("");
   };
 
+  const clearFile = () => {
+    setFile(null);
+    setPreview("");
+    if (fileInput.current) fileInput.current.value = "";
+  };
+
+  // Picking an example switches the analysis to the pasted ingredient list.
+  const useSample = (value) => {
+    clearFile();
+    setText(value);
+  };
+
   const run = async () => {
     setError("");
-    if (mode === "text" && !text.trim()) {
-      setError("Paste an ingredient list first (or pick an example below).");
-      return;
-    }
-    if (mode === "image" && !file) {
-      setError("Choose a label photo first.");
+    const useImage = !!file;
+    if (!useImage && !text.trim()) {
+      setError("Upload a product label image or paste the ingredient list to analyze.");
       return;
     }
     setBusy(true);
     try {
-      const report =
-        mode === "text"
-          ? await api.analyzeText(text.trim())
-          : await api.analyzeImage(file);
+      const report = useImage ? await api.analyzeImage(file) : await api.analyzeText(text.trim());
       navigate(`/report/${report.analysis_id}`);
     } catch (err) {
       setError(err);
@@ -56,118 +61,95 @@ export default function Analyze() {
     <>
       <div className="page-head">
         <div>
-          <h1>New analysis</h1>
-          <p>
-            Paste the ingredient list from a product page, or upload a photo of the label. The
-            report predicts the product category, formulation profile and potential concerns with
-            per-ingredient explanations.
-          </p>
+          <h1>Analyze a Product</h1>
+          <p>Upload a product label or enter the ingredient list manually.</p>
         </div>
       </div>
 
       <ErrorBanner error={error} />
 
-      <div className="tabs">
-        <button
-          className={`tab${mode === "text" ? " active" : ""}`}
-          onClick={() => setMode("text")}
-          disabled={busy}
+      <div className="card">
+        <h3>Upload Image</h3>
+        <div
+          className={`file-drop${file ? " filled" : ""}`}
+          onClick={() => fileInput.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            pickFile(e.dataTransfer.files?.[0]);
+          }}
         >
-          ✎ Ingredient text
-        </button>
-        <button
-          className={`tab${mode === "image" ? " active" : ""}`}
-          onClick={() => setMode("image")}
-          disabled={busy}
-        >
-          ▣ Label photo
-        </button>
+          {file ? (
+            <>
+              <div>
+                <strong>{file.name}</strong> · {(file.size / 1024).toFixed(0)} KB
+              </div>
+              <img src={preview} alt="selected label preview" />
+              <div className="mt">
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearFile();
+                  }}
+                >
+                  Remove image
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>Product label</div>
+              <div className="small muted mt">
+                Drop an image here or click to browse · PNG or JPEG
+              </div>
+            </>
+          )}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            style={{ display: "none" }}
+            onChange={(e) => pickFile(e.target.files?.[0])}
+          />
+        </div>
       </div>
 
+      <div className="or-divider">OR</div>
+
       <div className="card">
-        {mode === "text" ? (
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Paste ingredients here..."
+        />
+        {samples.length > 0 && (
           <>
-            <label className="field" htmlFor="ingredients">
-              Ingredient list (INCI order, comma or newline separated)
-            </label>
-            <textarea
-              id="ingredients"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Aqua, Glycerin, Niacinamide, Sodium Hyaluronate, Panthenol, ..."
-            />
-            {samples.length > 0 && (
-              <>
-                <label className="field">Try an example</label>
-                <div className="row">
-                  {samples.map((s) => (
-                    <button
-                      key={s.id}
-                      className="btn small"
-                      onClick={() => setText(s.text)}
-                      type="button"
-                    >
-                      {s.title}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <label className="field">Photo of the ingredient label</label>
-            <div
-              className={`file-drop${file ? " filled" : ""}`}
-              onClick={() => fileInput.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                pickFile(e.dataTransfer.files?.[0]);
-              }}
-            >
-              {file ? (
-                <>
-                  <div>
-                    <strong>{file.name}</strong> · {(file.size / 1024).toFixed(0)} KB
-                  </div>
-                  <img src={preview} alt="selected label preview" />
-                </>
-              ) : (
-                <>
-                  <div>▣ Drop a photo here or click to browse</div>
-                  <div className="small muted mt">PNG / JPEG up to 12 MB</div>
-                </>
-              )}
-              <input
-                ref={fileInput}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                style={{ display: "none" }}
-                onChange={(e) => pickFile(e.target.files?.[0])}
-              />
-            </div>
-            <div className="small muted mt">
-              The CNN first locates the ingredient text block, then OCR reads it - you can correct
-              the text from the report if needed.
+            <div className="field-label">Try an example</div>
+            <div className="row">
+              {samples.map((s) => (
+                <button
+                  key={s.id}
+                  className="btn small"
+                  onClick={() => useSample(s.text)}
+                  type="button"
+                >
+                  {s.title}
+                </button>
+              ))}
             </div>
           </>
         )}
-
-        <div className="row mt">
-          <button className="btn primary" onClick={run} disabled={busy}>
-            {busy ? "Analysing…" : "Analyse"}
-          </button>
-          <span className="small muted">
-            {busy
-              ? mode === "image"
-                ? "CNN text detection → OCR → LSTM profiling (a few seconds)…"
-                : "Running occlusion explainability…"
-              : "The report is saved to history automatically."}
-          </span>
-        </div>
-        {busy && <Spinner />}
       </div>
+
+      <div className="row mt">
+        <button className="btn primary" onClick={run} disabled={busy}>
+          {busy ? "Analyzing…" : "Analyze Product"}
+        </button>
+        {busy ? <span className="small muted">Analyzing the ingredients…</span> : null}
+      </div>
+      {busy && <Spinner />}
     </>
   );
 }

@@ -100,8 +100,9 @@ def to_markdown(report: Mapping) -> str:
     lines.append("")
     for finding in concerns.get("findings", []):
         severity = str(finding.get("severity", "")).upper()
+        ai_suffix = " *(AI-learned, unreviewed)*" if finding.get("ai_derived") else ""
         lines.append(
-            f"- **[{severity}] {finding.get('label')}:** "
+            f"- **[{severity}] {finding.get('label')}:**{ai_suffix} "
             + ", ".join(finding.get("ingredients", []))
         )
         if finding.get("message"):
@@ -125,17 +126,86 @@ def to_markdown(report: Mapping) -> str:
     lines.append("| # | Ingredient | Function | Notes |")
     lines.append("|---|---|---|---|")
     for row in report.get("ingredients", []):
+        label = str(row.get("ingredient", ""))
+        if row.get("ai_learned"):
+            label += " *(AI-learned, unreviewed)*"
         lines.append(
-            f"| {row.get('position')} | {row.get('ingredient')} | "
+            f"| {row.get('position')} | {label} | "
             f"{', '.join(row.get('function_labels', [])) or 'n/a'} | {row.get('note', '')} |"
         )
     lines.append("")
+    learned_used = int((report.get("knowledge_base") or {}).get("learned_used") or 0)
+    if learned_used:
+        lines.append(
+            f"> {learned_used} row(s) were resolved from the AI-learned knowledge-base overlay: "
+            "AI-generated and unreviewed, not verified reference data."
+        )
+        lines.append("")
 
     if report.get("warnings"):
         lines.append("## Warnings")
         lines.append("")
         for warning in report["warnings"]:
             lines.append(f"- {warning}")
+        lines.append("")
+
+    ai = report.get("ai_enrichment") or {}
+    ai_items = [item for item in ai.get("items", []) if item.get("data")]
+    if ai.get("enabled") and ai_items:
+        # Deliberately a separate section with explicit labels so AI-derived
+        # content can never be mistaken for the verified local knowledge base.
+        lines.append("## AI-enriched information")
+        lines.append("")
+        lines.append(
+            "> **Source: Groq · Unreviewed · Not a safety or regulatory determination.**"
+        )
+        lines.append(
+            "> AI-generated informational content for ingredients missing from the local "
+            "knowledge base. It does not influence model predictions or the deterministic "
+            "concern screening."
+        )
+        lines.append("")
+        for item in ai_items:
+            data = item.get("data") or {}
+            status = str(item.get("status", ""))
+            cache_note = " · expired cache (refresh failed)" if status == "stale_cache" else ""
+            lines.append(f"### {item.get('ingredient', '')} - AI-enriched")
+            lines.append("")
+            lines.append(
+                f"- **Source:** Groq (`{item.get('model') or 'groq'}`) · "
+                f"**Review status:** {item.get('review_status') or 'unreviewed'} · "
+                f"**Confidence:** {data.get('confidence') or 'unknown'}{cache_note}"
+            )
+            if data.get("description"):
+                lines.append(f"- **Description:** {data['description']}")
+            if data.get("functions"):
+                lines.append(f"- **Functions (AI-suggested):** {', '.join(data['functions'])}")
+            if data.get("possible_concerns"):
+                lines.append(
+                    "- **Possible concerns (informational possibilities, not confirmed "
+                    "hazards):** " + ", ".join(data["possible_concerns"])
+                )
+            if data.get("regulatory_note"):
+                lines.append(
+                    f"- **Regulatory note (informational, non-binding):** {data['regulatory_note']}"
+                )
+            if data.get("evidence_note"):
+                lines.append(f"- **Evidence note:** {data['evidence_note']}")
+            kb_block = item.get("knowledge_base") or {}
+            if kb_block.get("promoted"):
+                lines.append(
+                    "- **Knowledge base:** saved to the AI-learned overlay "
+                    "(unreviewed; later analyses resolve it locally without another AI call)"
+                )
+            elif kb_block.get("reason"):
+                lines.append(f"- **Knowledge base:** not saved - {kb_block['reason']}")
+            lines.append("")
+        ai_disclaimer = ai.get(
+            "disclaimer",
+            "AI-generated informational content. It is not a safety, medical, "
+            "or regulatory determination.",
+        )
+        lines.append(f"*{ai_disclaimer}*")
         lines.append("")
 
     if report.get("ocr"):
@@ -191,13 +261,35 @@ def to_text(report: Mapping) -> str:
     out.append(border("-"))
     out.append(row("POTENTIAL CONCERNS"))
     for finding in report.get("concerns", {}).get("findings", [])[:6]:
-        out.append(row(f"  ! {finding.get('label')}"))
+        suffix = " (AI-learned)" if finding.get("ai_derived") else ""
+        out.append(row(f"  ! {str(finding.get('label')) + suffix}"))
         out.append(row(f"    {', '.join(finding.get('ingredients', []))[: width - 8]}"))
     out.append(row())
     out.append(border("-"))
     out.append(row("INGREDIENT ASSESSMENT"))
     for line in _wrap(report.get("concerns", {}).get("ingredient_assessment", ""), width - 4):
         out.append(row("  " + line))
+
+    ai = report.get("ai_enrichment") or {}
+    ai_items = [item for item in ai.get("items", []) if item.get("data")]
+    if ai.get("enabled") and ai_items:
+        out.append(row())
+        out.append(border("-"))
+        out.append(row("AI-ENRICHED INFORMATION"))
+        for item in ai_items[:6]:
+            data = item.get("data") or {}
+            out.append(row(f"  {item.get('ingredient', '')}"))
+            for line in _wrap(data.get("description") or "no description available", width - 6):
+                out.append(row("    " + line))
+            if data.get("possible_concerns"):
+                for line in _wrap(
+                    "possible concerns: " + ", ".join(data["possible_concerns"]), width - 6
+                ):
+                    out.append(row("    " + line))
+            if (item.get("knowledge_base") or {}).get("promoted"):
+                out.append(row("    -> saved to the AI-learned KB (unreviewed)"))
+        out.append(row("  Source: Groq - Unreviewed - Not a safety or"))
+        out.append(row("  regulatory determination (AI informational only)"))
     out.append(border())
     return "\n".join(out)
 

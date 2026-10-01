@@ -55,3 +55,46 @@ JSON_STORE_PATH: Path = ARTIFACT_DIR / "reports" / "analyses_store.json"
 ANALYSIS_ASSET_DIR: Path = ARTIFACT_DIR / "reports" / "analyses"
 
 MAX_UPLOAD_BYTES: int = int(os.getenv("DEEPCOS_MAX_UPLOAD_BYTES", str(12 * 1024 * 1024)))
+
+# --- optional AI ingredient enrichment (Groq) -------------------------------
+# Disabled unless explicitly enabled AND an API key is configured, so the app
+# behaves exactly like a pure knowledge-base system by default. The key is read
+# server-side only and must never be returned by the API or sent to the client.
+AI_ENRICHMENT_ENABLED: bool = os.getenv("AI_ENRICHMENT_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b").strip() or "qwen/qwen3.8-27b"
+GROQ_API_URL: str = os.getenv(
+    "GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions"
+).strip()
+GROQ_TIMEOUT_SECONDS: int = int(os.getenv("GROQ_TIMEOUT_SECONDS", "20"))
+AI_ENRICHMENT_MAX_ITEMS: int = max(0, int(os.getenv("AI_ENRICHMENT_MAX_ITEMS", "10")))
+AI_ENRICHMENT_CACHE_TTL_DAYS: int = max(1, int(os.getenv("AI_ENRICHMENT_CACHE_TTL_DAYS", "30")))
+
+# --- knowledge-base promotion (opt-in, off by default) -----------------------
+# When enabled, *validated* enrichment results for ingredients the local
+# knowledge base does not document are written to a separate "AI-learned"
+# overlay file (data/knowledge_base/learned_ingredients.json) and served from
+# there on later runs. The verified reference files are never modified, and
+# every promoted entry stays labelled origin="ai-learned", review_status=
+# "unreviewed" in the API, the reports and the exports.
+AI_PROMOTE_TO_KB: bool = os.getenv("AI_PROMOTE_TO_KB", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+AI_PROMOTE_MIN_CONFIDENCE: str = (
+    os.getenv("AI_PROMOTE_MIN_CONFIDENCE", "medium").strip().lower() or "medium"
+)
+
+# Cache for enrichment records, mirroring the analyses persistence fallback
+ENRICHMENT_JSON_STORE_PATH: Path = ARTIFACT_DIR / "reports" / "ingredient_enrichments.json"
+
+# AI-learned overlay file - single source of truth lives in ml.config so the
+# knowledge base loader and the write path can never drift apart.
+LEARNED_INGREDIENTS_PATH: Path = ml_config.LEARNED_INGREDIENTS_PATH

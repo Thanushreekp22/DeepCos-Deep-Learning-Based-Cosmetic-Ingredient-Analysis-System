@@ -37,7 +37,7 @@ export default function History() {
       <div className="page-head">
         <div>
           <h1>History</h1>
-          <p>Every persisted analysis (MongoDB primary, JSON fallback) - newest first.</p>
+          <p>Every saved analysis — newest first.</p>
         </div>
         <button className="btn small" onClick={load} disabled={busy}>
           ⟳ Refresh
@@ -60,7 +60,6 @@ export default function History() {
                 <th>Product</th>
                 <th>Top concern</th>
                 <th>Ingredients</th>
-                <th>Time</th>
                 <th />
               </tr>
             </thead>
@@ -78,7 +77,7 @@ export default function History() {
                     </td>
                     <td>
                       <Chip tone={it.mode === "image" ? "lilac" : "rose"}>
-                        {it.mode || "legacy"}
+                        {it.mode === "image" ? "Image" : it.mode === "text" ? "Text" : it.mode || "legacy"}
                       </Chip>
                     </td>
                     <td>
@@ -102,11 +101,6 @@ export default function History() {
                       )}
                     </td>
                     <td className="num">{it.input?.ingredient_count ?? "—"}</td>
-                    <td className="num">
-                      {it.processing_ms != null
-                        ? `${(it.processing_ms / 1000).toFixed(1)}s`
-                        : "—"}
-                    </td>
                     <td>
                       <div className="row" style={{ flexWrap: "nowrap" }}>
                         <a className="btn small" href={`/report/${it.analysis_id}`}>

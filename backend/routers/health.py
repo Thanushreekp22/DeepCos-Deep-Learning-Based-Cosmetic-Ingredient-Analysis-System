@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse
 
 from backend import config
 from backend.services.analysis_service import store_status
+from backend.services.ingredient_enrichment import enrichment_status
+from backend.services.kb_promotion import promoter_status
 from ml.inference import model_status
 
 router = APIRouter(prefix="/api", tags=["system"])
@@ -28,6 +30,9 @@ def health() -> dict:
         "status": "ok" if status.get("ingredient_model") else "degraded",
         "api": {"version": config.API_VERSION, "title": config.API_TITLE},
         "database": store_status(),
+        # Booleans/counts only - the Groq API key itself is never returned.
+        "ai_enrichment": enrichment_status(),
+        "ai_learned_kb": promoter_status(),
         "knowledge_base": status.get("knowledge_base", {}),
         "image_pipeline": {
             "text_region_cnn": status.get("text_region_cnn", False),

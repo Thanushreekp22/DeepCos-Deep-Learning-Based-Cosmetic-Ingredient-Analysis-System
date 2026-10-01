@@ -34,7 +34,7 @@ import time
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Protocol, Sequence
 
 import numpy as np
 
@@ -57,6 +57,68 @@ DISCLAIMER = (
     "patterns learned from training data. It is an informational tool: it does not determine "
     "whether a product is safe, and it does not give medical or dermatological advice."
 )
+
+# Shown with every report so AI-derived content is never mistaken for the
+# verified local knowledge base.
+AI_ENRICHMENT_DISCLAIMER = (
+    "AI-generated informational content. It is not a safety, medical, or regulatory determination."
+)
+
+
+class EnrichmentProvider(Protocol):
+    """
+    Optional AI-enrichment hook supplied by the backend.
+
+    Implementations receive the local-knowledge-base resolution and return the
+    ``ai_enrichment`` report block. They must never raise, but inference wraps
+    them defensively anyway: enrichment can only add a report field, never
+    change model inputs, scores or the deterministic concern screening.
+    """
+
+    def enrich_unresolved(self, resolution: Sequence["ResolvedIngredient"]) -> dict: ...
+
+
+def _empty_enrichment_block() -> dict:
+    return {
+        "enabled": False,
+        "requested_count": 0,
+        "resolved_count": 0,
+        "cached_count": 0,
+        "failed_count": 0,
+        "promotion_enabled": False,
+        "promoted_count": 0,
+        "items": [],
+        "disclaimer": AI_ENRICHMENT_DISCLAIMER,
+    }
+
+
+def _run_enrichment(
+    enricher: EnrichmentProvider | None,
+    resolution: Sequence["ResolvedIngredient"],
+) -> dict:
+    """
+    Build the ``ai_enrichment`` block. A disabled or broken enricher (or any
+    failure inside it) degrades to the empty block - the analysis itself always
+    completes, and AI data never touches tokens, scores, concerns or attribution.
+    """
+    if enricher is None:
+        block = _empty_enrichment_block()
+    else:
+        try:
+            block = enricher.enrich_unresolved(resolution)
+        except Exception as exc:  # noqa: BLE001 - enrichment is best-effort only
+            print(f"[deepcos] AI enrichment skipped ({type(exc).__name__}: {exc})")
+            block = _empty_enrichment_block()
+    if not isinstance(block, dict):
+        block = _empty_enrichment_block()
+    block.setdefault("enabled", False)
+    for count_key in ("requested_count", "resolved_count", "cached_count", "failed_count"):
+        block.setdefault(count_key, 0)
+    block.setdefault("promotion_enabled", False)
+    block.setdefault("promoted_count", 0)
+    block.setdefault("items", [])
+    block.setdefault("disclaimer", AI_ENRICHMENT_DISCLAIMER)
+    return block
 
 # Functions that are structural rather than characteristic: they rarely belong in
 # the "key ingredients" list unless the model found them influential.
@@ -272,9 +334,14 @@ def analyze_ingredients(
     image_analysis: dict | None = None,
     ocr_result: dict | None = None,
     explain: bool = True,
+    enricher: EnrichmentProvider | None = None,
 ) -> dict:
     """
     Run the complete DeepCos analysis for an ingredient list.
+
+    ``enricher`` is an optional backend-supplied AI fallback for ingredients the
+    local knowledge base could not resolve; when ``None`` (the default) the
+    report simply carries an ``ai_enrichment`` block with ``enabled: false``.
 
     Raises
     ------
@@ -305,6 +372,19 @@ def analyze_ingredients(
             f"{len(unresolved)} ingredient name(s) were not found in the knowledge base: "
             + ", ".join(unresolved[:6])
             + ("..." if len(unresolved) > 6 else "")
+        )
+    # AI-learned entries (promoted by the optional enrichment feature) resolve
+    # locally, but they are unverified AI content - say so instead of presenting
+    # them like the curated reference data.
+    learned_used = sorted(
+        {item.inci for item in resolution if item.info is not None and item.info.learned}
+    )
+    if learned_used:
+        warnings.append(
+            f"{len(learned_used)} ingredient(s) resolved from the AI-learned knowledge-base "
+            "overlay (AI-generated, unreviewed - not verified reference data): "
+            + ", ".join(learned_used[:6])
+            + ("..." if len(learned_used) > 6 else "")
         )
     if len(raw_names) > config.SEQ_LEN:
         warnings.append(
@@ -344,6 +424,12 @@ def analyze_ingredients(
     rows = concern_engine.ingredient_breakdown(resolution, kb)
     concerns = concern_engine.screen(resolution, kb)
     reliability = bundle.profile_reliability()
+
+    # 5b. optional AI enrichment for unresolved names -----------------------
+    # Runs strictly after the model/rule outputs above and only appends a
+    # separate report block: no effect on tokens, profile scores, category
+    # prediction, concern flags, regulatory severity or attribution.
+    ai_enrichment = _run_enrichment(enricher, resolution)
 
     # 6. assemble the report ----------------------------------------------
     raw_text_value = raw_text if raw_text is not None else ", ".join(raw_names)
@@ -412,7 +498,10 @@ def analyze_ingredients(
             "ingredient_count": len(kb),
             "matched": len(names) - len(unresolved),
             "match_rate": round((len(names) - len(unresolved)) / max(1, len(names)), 4),
+            "learned_count": kb.learned_count(),
+            "learned_used": len(learned_used),
         },
+        "ai_enrichment": ai_enrichment,
         "warnings": warnings,
         "disclaimer": DISCLAIMER,
         "processing_ms": round((time.perf_counter() - started) * 1000, 1),
@@ -434,6 +523,7 @@ def analyze_image_bytes(
     provided_text: str | None = None,
     explain: bool = True,
     max_ocr_variants: int | None = 5,
+    enricher: EnrichmentProvider | None = None,
 ) -> dict:
     """
     Full image path: CNN text localisation -> OCR -> ingredient analysis.
@@ -513,6 +603,7 @@ def analyze_image_bytes(
         image_analysis=image_analysis,
         ocr_result=ocr_payload,
         explain=explain,
+        enricher=enricher,
     )
     report["preprocessing"]["ocr_text"] = ocr_result.text
     return report
@@ -524,6 +615,7 @@ def analyze(
     image_bytes: bytes | None = None,
     explain: bool = True,
     max_ocr_variants: int | None = 5,
+    enricher: EnrichmentProvider | None = None,
 ) -> dict:
     """Unified entry point: accepts text, an image, or both."""
     if image_bytes is not None:
@@ -532,10 +624,11 @@ def analyze(
             provided_text=text,
             explain=explain,
             max_ocr_variants=max_ocr_variants,
+            enricher=enricher,
         )
     if text is None or not str(text).strip():
         raise ValueError("Supply either an ingredient text or an image.")
-    return analyze_ingredients(text, mode="text", raw_text=text, explain=explain)
+    return analyze_ingredients(text, mode="text", raw_text=text, explain=explain, enricher=enricher)
 
 
 

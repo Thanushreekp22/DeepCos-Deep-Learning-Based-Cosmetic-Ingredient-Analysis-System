@@ -1,24 +1,29 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { api } from "./api.js";
 import Dashboard from "./pages/Dashboard.jsx";
 import Analyze from "./pages/Analyze.jsx";
 import Report from "./pages/Report.jsx";
 import History from "./pages/History.jsx";
 import Knowledge from "./pages/Knowledge.jsx";
+import KnowledgeBase from "./pages/KnowledgeBase.jsx";
 import ModelPage from "./pages/ModelPage.jsx";
+import Help from "./pages/Help.jsx";
 
+// The sidebar is deliberately user-facing only. Technical views (/model,
+// /knowledgebase, /help) are reached through the Search & commands box below.
 const NAV = [
   { to: "/", label: "Dashboard", icon: "◈", end: true },
-  { to: "/analyze", label: "New analysis", icon: "✚" },
+  { to: "/analyze", label: "New Analysis", icon: "✚" },
   { to: "/history", label: "History", icon: "≣" },
-  { to: "/knowledge", label: "Knowledge base", icon: "⬡" },
-  { to: "/model", label: "Models", icon: "◉" },
+  { to: "/knowledge", label: "Ingredient Guide", icon: "⬡" },
 ];
 
 export default function App() {
   const [health, setHealth] = useState(null);
   const [healthError, setHealthError] = useState("");
+  const [command, setCommand] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     api
@@ -27,8 +32,19 @@ export default function App() {
       .catch((err) => setHealthError(err.message));
   }, []);
 
-  const ready = health?.ingredient_model?.trained;
-  const db = health?.database?.backend;
+  // Search box doubles as a command router: /model, /knowledgebase, /help.
+  // Anything else is treated as an ingredient-guide search.
+  const runCommand = (event) => {
+    event.preventDefault();
+    const raw = command.trim();
+    if (!raw) return;
+    const verb = raw.split(/\s+/)[0].toLowerCase();
+    if (verb === "/model") navigate("/model");
+    else if (verb === "/knowledgebase") navigate("/knowledgebase");
+    else if (verb === "/help") navigate("/help");
+    else navigate(`/knowledge?q=${encodeURIComponent(raw)}`);
+    setCommand("");
+  };
 
   return (
     <div className="app">
@@ -50,33 +66,34 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          <div className={`status-dot ${ready ? "ok" : "warn"}`} />
-          <div className="sidebar-status">
-            <div>{healthError ? "API unreachable" : ready ? "Models ready" : "Models missing"}</div>
-            <small>
-              {db === "mongodb" ? "MongoDB" : db === "json" ? "JSON fallback" : "connecting…"}
-              {health ? ` · KB ${health.knowledge_base?.ingredient_count ?? "—"}` : ""}
-            </small>
+        <form className="sidebar-search" onSubmit={runCommand}>
+          <input
+            type="search"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            placeholder="Search or type a command"
+            aria-label="Search or type a command"
+          />
+          <div className="hint">
+            Commands: <code>/model</code> <code>/knowledgebase</code> <code>/help</code>
           </div>
-        </div>
+        </form>
       </aside>
 
       <main className="main">
         {!healthError && health && health.status !== "ok" && (
-          <div className="banner warn">
-            DeepCos is running in <strong>degraded</strong> mode:{" "}
-            {health.ingredient_model?.hint || "check /api/health for details"}
-          </div>
+          <div className="banner warn">DeepCos is running with limited functionality.</div>
         )}
-        {healthError && <div className="banner error">API unreachable: {healthError}</div>}
+        {healthError && <div className="banner error">DeepCos cannot reach the analysis service.</div>}
         <Routes>
-          <Route path="/" element={<Dashboard health={health} />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/analyze" element={<Analyze />} />
           <Route path="/report/:id" element={<Report />} />
           <Route path="/history" element={<History />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/knowledgebase" element={<KnowledgeBase />} />
           <Route path="/model" element={<ModelPage />} />
+          <Route path="/help" element={<Help />} />
         </Routes>
       </main>
     </div>

@@ -37,6 +37,12 @@ CONCERN_RULES_PATH: Path = KB_DIR / "concern_rules.json"
 PROFILE_WEIGHTS_PATH: Path = KB_DIR / "profile_weights.json"
 CATEGORY_TEMPLATES_PATH: Path = KB_DIR / "product_templates.json"
 
+# AI-learned overlay: entries promoted from *validated* AI enrichment output.
+# Kept in a separate file so the verified reference data (ingredients.json /
+# concern_rules.json) is never rewritten; every surfaced entry is labelled
+# ``origin="ai-learned"`` + ``review_status="unreviewed"``.
+LEARNED_INGREDIENTS_PATH: Path = KB_DIR / "learned_ingredients.json"
+
 # Generated datasets
 INGREDIENT_DATASET_PATH: Path = PROCESSED_DIR / "deepcos_products.csv"
 IMAGE_DATASET_DIR: Path = SYNTHETIC_DIR / "label_images"
